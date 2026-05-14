@@ -52,7 +52,7 @@ def bronze(df):
 @task
 def silver():
 
-    con = duckdb.connect("proyectolassupernenas.duckdb")
+    con = duckdb.connect("/workspaces/Proyecto_Aula_2/proyectolassupernenas.duckdb")
 
     con.execute("""
     CREATE OR REPLACE TABLE proyectolassupernenas.silver.precios AS
@@ -72,7 +72,7 @@ FROM proyectolassupernenas.bronze.precios
 @task
 def gold():
 
-    con = duckdb.connect("proyectolassupernenas.duckdb")
+    con = duckdb.connect("/workspaces/Proyecto_Aula_2/proyectolassupernenas.duckdb")
 
     con.execute("""
     CREATE OR REPLACE TABLE proyectolassupernenas.gold.modelo AS
@@ -91,7 +91,7 @@ FROM proyectolassupernenas.silver.precios
 @task
 def analisis():
 
-    con = duckdb.connect("proyectolassupernenas.duckdb")
+    con = duckdb.connect("/workspaces/Proyecto_Aula_2/proyectolassupernenas.duckdb")
 
     df = con.execute("""
     SELECT * FROM proyectolassupernenas.gold.modelo
@@ -104,7 +104,7 @@ def visualizacion():
 
     import matplotlib.pyplot as plt
 
-    con = duckdb.connect("proyectolassupernenas.duckdb")
+    con = duckdb.connect("/workspaces/Proyecto_Aula_2/proyectolassupernenas.duckdb")
 
     df = con.execute("""
     SELECT * FROM proyectolassupernenas.gold.modelo
@@ -139,7 +139,7 @@ flujo_de_tareas()
 
 import duckdb
 
-con = duckdb.connect("proyectolassupernenas.duckdb")
+con = duckdb.connect("/workspaces/Proyecto_Aula_2/proyectolassupernenas.duckdb")
 
 df = con.execute("""
 SELECT * 
@@ -149,3 +149,5 @@ FROM proyectolassupernenas.gold.modelo
 df.head()
 
 df[['EURUSD_F','DIF_INTERES','DIF_INFLACION','DIF_PIB']].corr()
+
+print(df.columns)
