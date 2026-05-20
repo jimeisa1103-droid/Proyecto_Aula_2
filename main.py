@@ -2,6 +2,15 @@ import pandas as pd
 import duckdb
 from prefect import flow, task
 
+import yfinance as yf
+from datetime import datetime
+
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score, mean_squared_error
+
+import statsmodels.api as sm
+
 datos = pd.read_excel(r"/workspaces/Proyecto_Aula_2/DATOS PROYECTO (1).xlsx")
 datos = datos
 datos = datos.astype(str)
@@ -89,6 +98,83 @@ FROM proyectolassupernenas.silver.precios
 """)
     
 @task
+def modelo_regresion():
+
+    con = duckdb.connect("proyectolassupernenas.duckdb")
+
+    df = con.execute("""
+    SELECT *
+    FROM proyectolassupernenas.gold.modelo
+    """).df()
+
+    # Variables independientes
+    X = df[[
+        "DIF_INTERES",
+        "DIF_INFLACION",
+        "DIF_PIB"
+    ]]
+
+    # Variable dependiente
+    y = df["EURUSD_F"]
+
+    # Agregar constante
+    X = sm.add_constant(X)
+
+    # Modelo OLS
+    modelo = sm.OLS(y, X).fit()
+
+    # Mostrar resumen
+    print(modelo.summary())
+
+    # Guardar coeficientes
+    resumen = pd.DataFrame({
+        "Variable": modelo.params.index,
+        "Coeficiente": modelo.params.values,
+        "P_Value": modelo.pvalues.values,
+        "T_Statistic": modelo.tvalues.values
+    })
+
+    con.execute("""
+    CREATE OR REPLACE TABLE proyectolassupernenas.gold.regresion_resumen AS
+    SELECT * FROM resumen
+    """)
+
+    # Guardar predicciones
+    predicciones = pd.DataFrame({
+        "REAL": y,
+        "PREDICCION": modelo.predict(X)
+    })
+
+    con.execute("""
+    CREATE OR REPLACE TABLE proyectolassupernenas.gold.predicciones AS
+    SELECT * FROM predicciones
+    """)
+    
+@task
+def api_yfinance():
+
+    con = duckdb.connect("proyectolassupernenas.duckdb")
+
+    eurusd = yf.download(
+        "EURUSD=X",
+        period="5d"
+    )
+
+    eurusd = eurusd.reset_index()
+
+    eurusd = eurusd[["Date", "Close"]]
+
+    eurusd.columns = [
+        "FECHA_API",
+        "EURUSD_API"
+    ]
+
+    con.execute("""
+    CREATE OR REPLACE TABLE proyectolassupernenas.gold.eurusd_api AS
+    SELECT * FROM eurusd
+    """)
+    
+@task
 def analisis():
 
     con = duckdb.connect("/workspaces/Proyecto_Aula_2/proyectolassupernenas.duckdb")
@@ -129,6 +215,10 @@ def flujo_de_tareas():
 
     gold()
 
+    modelo_regresion()
+
+    api_yfinance()
+
     analisis()
 
     visualizacion()
@@ -151,3 +241,8 @@ df.head()
 df[['EURUSD_F','DIF_INTERES','DIF_INFLACION','DIF_PIB']].corr()
 
 print(df.columns)
+
+con.execute("""
+SELECT *
+FROM proyectolassupernenas.gold.eurusd_api
+""").df()

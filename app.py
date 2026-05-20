@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import duckdb
 import matplotlib.pyplot as plt
+from sklearn.metrics import r2_score, mean_squared_error
 
 # ---------------------------
 # CONFIGURACIÓN DE LA PÁGINA
@@ -30,6 +31,24 @@ df = con.execute("""
 SELECT *
 FROM proyectolassupernenas.gold.modelo
 """).df()
+
+pred = con.execute("""
+SELECT *
+FROM proyectolassupernenas.gold.predicciones
+""").df()
+
+# ---------------------------
+# CARGAR DATOS YFINANCE
+# ---------------------------
+
+df_api = con.execute("""
+SELECT *
+FROM proyectolassupernenas.gold.eurusd_api
+""").df()
+
+st.subheader("EUR/USD desde Yahoo Finance")
+
+st.dataframe(df_api)
 
 # ---------------------------
 # TABLA LIMPIA PARA MOSTRAR
@@ -97,6 +116,34 @@ st.subheader("Datos Procesados")
 st.dataframe(df_mostrar, use_container_width=True)
 
 # ---------------------------
+# CALCULAR METRICAS
+# ---------------------------
+
+r2 = r2_score(
+    pred["REAL"],
+    pred["PREDICCION"]
+)
+
+mse = mean_squared_error(
+    pred["REAL"],
+    pred["PREDICCION"]
+)
+
+st.subheader("Modelo de Regresión")
+
+col1, col2 = st.columns(2)
+
+col1.metric(
+    "R²",
+    round(r2, 3)
+)
+
+col2.metric(
+    "ECM",
+    round(mse, 3)
+)
+
+# ---------------------------
 # GRÁFICA EUR/USD
 # ---------------------------
 
@@ -115,6 +162,28 @@ plt.xticks(rotation=45)
 st.pyplot(fig)
 
 # ---------------------------
+# GRÁFICA REAL VS PREDICCION
+# ---------------------------
+
+st.subheader("Valores Reales vs Predicciones")
+
+fig2, ax2 = plt.subplots(figsize=(10,5))
+
+ax2.plot(
+    pred["REAL"].values,
+    label="Real"
+)
+
+ax2.plot(
+    pred["PREDICCION"].values,
+    label="Predicción"
+)
+
+ax2.legend()
+
+st.pyplot(fig2)
+
+# ---------------------------
 # MATRIZ DE CORRELACIÓN
 # ---------------------------
 
@@ -131,3 +200,15 @@ corr = df[
 
 st.dataframe(corr)
 
+# ---------------------------
+# TABLA DE METRICAS
+# ---------------------------
+
+reg = con.execute("""
+SELECT *
+FROM proyectolassupernenas.gold.regresion_resumen
+""").df()
+
+st.subheader("Resultados de la Regresión")
+
+st.dataframe(reg)
